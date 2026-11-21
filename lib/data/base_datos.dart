@@ -26,8 +26,15 @@ class BaseDatos {
   Future<Database> _abrir() async {
     return openDatabase(
       await _ruta(),
-      version: 1,
+      version: 2,
       onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute(
+            'ALTER TABLE grupos ADD COLUMN total_rondas INTEGER NOT NULL DEFAULT 2',
+          );
+        }
+      },
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE grupos(
@@ -37,6 +44,7 @@ class BaseDatos {
             frecuencia TEXT NOT NULL,
             fecha_inicio TEXT NOT NULL,
             ronda_actual INTEGER NOT NULL DEFAULT 1,
+            total_rondas INTEGER NOT NULL,
             finalizado INTEGER NOT NULL DEFAULT 0
           )
         ''');
@@ -53,15 +61,16 @@ class BaseDatos {
         ''');
 
         await db.execute('''
-          CREATE TABLE grupos(
+          CREATE TABLE pagos(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nombre TEXT NOT NULL,
-            monto REAL NOT NULL CHECK (monto > 0),
-            frecuencia TEXT NOT NULL,
-            fecha_inicio TEXT NOT NULL,
-            ronda_actual INTEGER NOT NULL DEFAULT 1,
-            total_rondas INTEGER NOT NULL,
-            finalizado INTEGER NOT NULL DEFAULT 0
+            grupo_id INTEGER NOT NULL,
+            participante_id INTEGER NOT NULL,
+            ronda INTEGER NOT NULL,
+            monto REAL NOT NULL,
+            fecha_pago TEXT NOT NULL,
+            FOREIGN KEY (grupo_id) REFERENCES grupos(id) ON DELETE CASCADE,
+            FOREIGN KEY (participante_id) REFERENCES participantes(id) ON DELETE CASCADE,
+            UNIQUE (participante_id, ronda)
           )
         ''');
       },
