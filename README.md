@@ -1,25 +1,26 @@
 # Pasanaku App
 
-Aplicación multiplataforma desarrollada en **Flutter** y **Dart** para la administración integral de grupos de ahorro colaborativo (*Pasanaku*). Permite organizar participantes, realizar sorteos aleatorios de turnos, gestionar aportes por ronda con persistencia relacional local y consultar cotizaciones referenciales entre el boliviano (BOB) y el dólar estadounidense (USD).
+Aplicación multiplataforma desarrollada en **Flutter** y **Dart** para la administración integral de grupos de ahorro colaborativo (*Pasanaku*). Permite organizar participantes, sortear turnos al azar desde la creación del grupo, gestionar aportes por ronda con ciclos extensibles, persistir datos localmente y consultar cotizaciones referenciales entre el boliviano (BOB) y el dólar estadounidense (USD).
 
 ---
 
 ## Descargas Directas (Releases)
 
-Los ejecutables compilados para instalación directa están disponibles en la sección [Releases](https://github.com/SandiaCamil/pasanaku_app/releases) del repositorio:
+Los ejecutables compilados de la versión actual (**v1.1.0**) están disponibles en la sección [Releases](https://github.com/SandiaCamil/pasanaku_app/releases) del repositorio:
 
 * **Android (`app-release.apk`):** Instalador universal compatible con arquitecturas `arm64`, `armeabi-v7a` y `x86_64`.
-* **Windows (`pasanaku_app_windows.zip`):** Paquete portátil de escritorio (`x64`). Descomprimir el archivo completo y ejecutar `pasanaku_app.exe`.
+* **Windows (`pasanaku_app_windows.zip`):** Paquete portátil de escritorio (`x64`). Descomprimir la carpeta completa y ejecutar `pasanaku_app.exe`.
 
 ---
 
 ## Características Principales
 
-* **Gestión de Grupos y Rondas:** Creación, listado y eliminación de grupos con configuración de monto de cuota en bolivianos, frecuencia de aporte (*semanal*, *quincenal* o *mensual*), fecha de inicio y cantidad total de rondas (con soporte para múltiples vueltas mediante cálculo cíclico modular).
-* **Registro y Validación de Participantes:** Incorporación dinámica de integrantes (mínimo dos por grupo) con validación estricta de formularios y verificación de formato numérico de 8 dígitos para teléfonos móviles en Bolivia.
-* **Sorteo Aleatorio de Turnos:** Asignación imparcial y transaccional del orden de cobro habilitada antes de registrar el primer aporte de la ronda inicial.
-* **Control de Pagos por Ronda:** Seguimiento individualizado de aportes mediante listas interactivas, cálculo automático del pozo recaudado frente al total esperado y cierre controlado de rondas.
-* **Arquitectura Offline-First:** Persistencia local completa mediante SQLite (esquema v2 con migración automática) con integridad referencial (`ON DELETE CASCADE`) y restricciones de unicidad por ronda.
+* **Creación Inteligente y Rondas Automáticas:** Configuración de grupos con monto de cuota en bolivianos, frecuencia de aporte (*semanal*, *quincenal* o *mensual*), fecha de inicio y cálculo automático de rondas equivalente al número de participantes registrados (mínimo dos integrantes).
+* **Sorteo Aleatorio y Vista Previa del Pozo:** Botón de sorteo aleatorio integrado en la pantalla de creación y en la primera ronda (antes del primer pago), acompañado de una vista previa en vivo y un resumen de confirmación con el receptor y el monto total del pozo inicial.
+* **Ciclos Adicionales Extensibles:** Opción *Agregar otro ciclo (+N rondas)* en el detalle del grupo para extender la duración del Pasanaku manteniendo el orden de turnos sorteado o reactivar grupos ya finalizados mediante cálculo cíclico modular.
+* **Registro y Validación de Participantes:** Validación estricta de formularios y verificación numérica de 8 dígitos para teléfonos móviles en Bolivia.
+* **Control de Pagos por Ronda:** Seguimiento individualizado de aportes mediante listas interactivas, barra de progreso del pozo recaudado y cierre controlado de cada ronda.
+* **Arquitectura Offline-First:** Persistencia relacional local completa mediante SQLite (esquema v2 con migración automática) con integridad referencial (`ON DELETE CASCADE`) y restricciones de unicidad por ronda.
 * **Conversión Referencial de Divisas:** Consulta en tiempo real a través de API REST para mostrar el tipo de cambio vigente USD/BOB, incorporando una tasa oficial de respaldo (`6.96 Bs`) ante ausencia de conectividad.
 
 ---
@@ -35,20 +36,20 @@ lib/
 ├── core/
 │   └── tema.dart                     # Paleta cromática Material 3 y estilos de componentes
 ├── models/
-│   ├── grupo.dart                    # Entidad Grupo, frecuencias y serialización SQL
+│   ├── grupo.dart                    # Entidad Grupo, frecuencias, copyWith y serialización SQL
 │   ├── participante.dart             # Entidad Participante y asignación de turno
 │   └── pago.dart                     # Entidad Pago por integrante y ronda
 ├── data/
 │   ├── base_datos.dart               # Singleton de conexión SQLite, DDL y migración v2
-│   ├── pasanaku_repositorio.dart     # Operaciones CRUD, transacciones y sorteo aleatorio
+│   ├── pasanaku_repositorio.dart     # Operaciones CRUD, transacciones, sorteo y ciclos
 │   └── tipo_cambio_servicio.dart     # Cliente HTTP para cotización USD/BOB
 ├── providers/
 │   ├── grupos_provider.dart          # Gestión reactiva del listado de grupos
-│   └── detalle_grupo_provider.dart   # Lógica de rondas, recaudación y receptor cíclico
+│   └── detalle_grupo_provider.dart   # Lógica de rondas, ciclos, recaudación y receptor
 └── screens/
     ├── lista_grupos_screen.dart      # Vista principal y resumen de grupos
-    ├── nuevo_grupo_screen.dart       # Formulario de creación y validaciones
-    └── detalle_grupo_screen.dart     # Panel de control de ronda, sorteo y pagos
+    ├── nuevo_grupo_screen.dart       # Creación, sorteo, rondas automáticas y vista del pozo
+    └── detalle_grupo_screen.dart     # Panel de control de ronda, pagos y ciclos adicionales
 ```
 
 ---
@@ -57,11 +58,11 @@ lib/
 
 | Componente | Tecnología / Paquete | Descripción |
 | :--- | :--- | :--- |
-| **Framework y Lenguaje** | Flutter `3.50.1` / Dart `3.14.0` | Desarrollo multiplataforma con compilación nativa y *null safety*. |
-| **Gestión de Estado** | `provider` (`ChangeNotifier`) | Inyección de dependencias y actualización reactiva de la interfaz. |
-| **Persistencia Local** | `sqflite`, `sqflite_common_ffi`, `sqflite_common_ffi_web` | Base de datos SQLite nativa en Android, FFI en Windows y WebAssembly/IndexedDB en Web. |
-| **Conectividad y Formato** | `http`, `intl`, `path`, `path_provider` | Consumo de servicios REST, formateo de fechas/monedas y rutas del sistema. |
-| **Pruebas Automatizadas** | `flutter_test` | Pruebas unitarias de serialización de modelos y reglas de dominio. |
+| **Framework y Lenguaje** | Flutter `3.50.1` / Dart `3.14.0` | Desarrollo multiplataforma con compilación nativa y *sound null safety*. |
+| **Gestión de Estado** | `provider` (`^6.1.5+1`) | Inyección de dependencias y actualización reactiva de la interfaz (`ChangeNotifier`). |
+| **Persistencia Local** | `sqflite` (`^2.4.6`), `sqflite_common_ffi` (`^2.4.7`), `sqflite_common_ffi_web` (`^1.2.2`) | Base de datos SQLite nativa en Android, FFI en Windows y WebAssembly/IndexedDB en Web. |
+| **Conectividad y Formato** | `http` (`^1.6.0`), `intl` (`^0.20.3`), `path` (`^1.9.1`), `path_provider` (`^2.1.6`) | Consumo de servicios REST, formateo de fechas/monedas y rutas del sistema. |
+| **Pruebas Automatizadas** | `flutter_test`, `flutter_lints` (`^6.0.0`) | Pruebas unitarias de serialización de modelos, reglas de dominio y análisis estático. |
 
 ---
 
@@ -80,7 +81,7 @@ El proyecto adapta automáticamente el motor de almacenamiento según el entorno
 ### Requisitos previos
 * Flutter SDK `3.50.1` o superior.
 * Dart SDK `3.14.0` o superior.
-* Android SDK (API 36), Visual Studio (para compilación en Windows) o navegador web compatible.
+* Android SDK (API 36), Visual Studio 2026 (para compilación en Windows) o navegador web compatible.
 
 ### Pasos de ejecución
 
